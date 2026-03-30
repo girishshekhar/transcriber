@@ -1,0 +1,104 @@
+# Local Audio Transcriber
+
+Transcribes audio files using [OpenAI Whisper](https://github.com/openai/whisper). Runs entirely on your machine — no cloud, no API key, no data leaves your computer.
+
+## Prerequisites
+
+- Python 3.8+
+- FFmpeg (for reading most audio formats)
+  - macOS: `brew install ffmpeg`
+  - Linux: `sudo apt install ffmpeg`
+  - Windows: `winget install ffmpeg`
+
+## Setup
+
+Install dependencies once:
+
+```bash
+pip install -r requirements.txt
+```
+
+On first run, Whisper downloads the selected model (~39MB–1.5GB depending on size) and caches it locally.
+
+## Usage
+
+```bash
+python3 transcriber.py <audio_file> [OPTIONS]
+```
+
+### Options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-m`, `--model` | `base` | Model size: tiny, base, small, medium, large |
+| `-f`, `--format` | `txt` | Output format: txt, srt, json |
+| `--fix-hallucinations` | off | Enable post-processing to remove looping/repeated content |
+
+Output is saved alongside the input file with the appropriate extension (e.g. `recording.m4a` → `recording.txt`).
+
+### Examples
+
+```bash
+# Basic transcription (produces recording.txt)
+python3 transcriber.py recording.m4a
+
+# Higher accuracy
+python3 transcriber.py -m medium recording.m4a
+
+# SRT subtitle file
+python3 transcriber.py -f srt lecture.m4a
+
+# JSON output with timestamps and metadata
+python3 transcriber.py -f json interview.m4a
+
+# If the transcript contains repeated/looping phrases
+python3 transcriber.py --fix-hallucinations recording.m4a
+```
+
+## Model Sizes
+
+| Model | Size | Speed | Accuracy |
+|-------|------|-------|----------|
+| tiny | ~39MB | fastest | basic |
+| base | ~74MB | fast | good — **default** |
+| small | ~244MB | moderate | better |
+| medium | ~769MB | slow | high |
+| large | ~1.5GB | slowest | best |
+
+Start with `base`. Use `medium` or `large` for important content where accuracy matters.
+
+## Output Formats
+
+- **txt** — plain text transcript
+- **srt** — subtitle file with timestamps (for video players)
+- **json** — full Whisper output including segments, word timestamps, confidence scores, and detected language
+
+## `--fix-hallucinations` flag
+
+Whisper occasionally "loops" on long or low-quality audio, repeating the same phrases for minutes. When this happens, enable `--fix-hallucinations` to:
+
+1. Remove duplicate and near-duplicate segments (>80% word overlap)
+2. Detect and truncate repetitive n-gram patterns in the final text
+
+**Trade-off:** The post-processing uses heuristics and can occasionally drop valid content, especially in audio with naturally repetitive speech. Use it reactively — run without it first, and enable it only if the output contains obvious loops.
+
+## Supported Audio Formats
+
+Any format FFmpeg can decode: m4a, mp3, wav, flac, aac, ogg, wma, and more.
+
+## Privacy
+
+- All processing runs locally on your machine
+- No internet connection required after the initial model download
+- Audio files never leave your computer
+- No accounts or API keys needed
+
+## Troubleshooting
+
+**Out of memory:** Use a smaller model (`-m tiny` or `-m base`).
+
+**Slow transcription:** Use `-m tiny` for speed. A GPU (CUDA) will dramatically speed up larger models.
+
+**FFmpeg not found:** Install FFmpeg using the instructions in [Prerequisites](#prerequisites).
+
+**Transcript loops or repeats:** Try `--fix-hallucinations`. If the output is still bad, try a larger model (`-m medium`) — larger models hallucinate less.
