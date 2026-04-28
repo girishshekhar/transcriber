@@ -33,6 +33,7 @@ python3 transcriber.py <audio_file> [OPTIONS]
 | `-m`, `--model` | `base` | Model size: tiny, base, small, medium, large |
 | `-f`, `--format` | `txt` | Output format: txt, srt, json |
 | `--fix-hallucinations` | off | Enable post-processing to remove looping/repeated content |
+| `--silence-split SECONDS` | off | Skip silence gaps longer than SECONDS before transcribing |
 
 Output is saved alongside the input file with the appropriate extension (e.g. `recording.m4a` → `recording.txt`).
 
@@ -53,6 +54,12 @@ python3 transcriber.py -f json interview.m4a
 
 # If the transcript contains repeated/looping phrases
 python3 transcriber.py --fix-hallucinations recording.m4a
+
+# Skip silence gaps longer than 1.5 seconds (good for recordings with pauses)
+python3 transcriber.py --silence-split 1.5 recording.m4a
+
+# Combine both: skip silence and clean up any remaining loops
+python3 transcriber.py --silence-split 1.5 --fix-hallucinations recording.m4a
 ```
 
 ## Model Sizes
@@ -72,6 +79,23 @@ Start with `base`. Use `medium` or `large` for important content where accuracy 
 - **txt** — plain text transcript
 - **srt** — subtitle file with timestamps (for video players)
 - **json** — full Whisper output including segments, word timestamps, confidence scores, and detected language
+
+## `--silence-split` flag
+
+Recordings with pauses, gaps, or dead air can cause Whisper to hallucinate — it fills silence with invented text. `--silence-split` avoids this by:
+
+1. Running `ffmpeg silencedetect` to find gaps longer than the given threshold
+2. Extracting only the non-silent segments into temporary chunks
+3. Transcribing each chunk independently
+4. Merging the results back with corrected timestamps
+
+```bash
+python3 transcriber.py --silence-split 1.5 recording.m4a
+```
+
+**Choosing a threshold:** Start with `1.5`. Use a smaller value (e.g. `0.5`) for fast-paced speech; use a larger value (e.g. `3.0`) if natural pauses are being incorrectly split. Chunks shorter than 5 seconds are skipped automatically.
+
+**Works with all output formats** — `txt`, `srt`, and `json` timestamps are correctly offset to reflect the original file positions.
 
 ## `--fix-hallucinations` flag
 
@@ -101,4 +125,4 @@ Any format FFmpeg can decode: m4a, mp3, wav, flac, aac, ogg, wma, and more.
 
 **FFmpeg not found:** Install FFmpeg using the instructions in [Prerequisites](#prerequisites).
 
-**Transcript loops or repeats:** Try `--fix-hallucinations`. If the output is still bad, try a larger model (`-m medium`) — larger models hallucinate less.
+**Transcript loops or repeats:** Try `--fix-hallucinations`. If the recording has long pauses, also try `--silence-split 1.5`. If the output is still bad, try a larger model (`-m medium`) — larger models hallucinate less.
